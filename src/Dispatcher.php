@@ -12,6 +12,7 @@ use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
 use Wtsergo\AmpChannelDispatcher\Dispatcher\ContextFactory;
 use Wtsergo\AmpChannelDispatcher\Dispatcher\ContextFactoryImpl;
+use function Amp\weakClosure;
 
 class Dispatcher
 {
@@ -33,12 +34,6 @@ class Dispatcher
     /** @var \Closure():void */
     protected \Closure $writeLoop;
 
-    /** @var \Closure():void */
-    protected \Closure $readLoop;
-
-    /** @var \Closure():void */
-    protected \Closure $stop;
-
     private readonly DeferredCancellation $loopCancellation;
 
     /**
@@ -46,9 +41,12 @@ class Dispatcher
      */
     private array $pendingResponses = [];
 
+    private ?string $writeLoopId=null;
+
     /**
      * @param DispatcherChannel<Message, Message> $channel
      * @param RequestHandler $requestHandler
+     * @param \Closure(Message):void $readLoopCallback
      */
     public function __construct(
         private readonly DispatcherChannel $channel,
@@ -56,17 +54,16 @@ class Dispatcher
         private readonly ErrorHandler $errorHandler = new DefaultErrorHandler,
         private readonly ContextFactory $contextFactory = new ContextFactoryImpl,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?\Closure $readLoopCallback = null,
     )
     {
         $this->writeQueue = new Queue();
         $this->writeIterator = $this->writeQueue->iterate();
         $this->loopCancellation = new DeferredCancellation();
-        $this->sendRequest = $this->sendRequest(...);
-        $this->handleRequest = $this->handleRequest(...);
-        $this->handleResponse = $this->handleResponse(...);
-        $this->writeLoop = $this->writeLoop(...);
-        $this->readLoop = $this->readLoop(...);
-        $this->stop = $this->stop(...);
+        $this->sendRequest = weakClosure($this->sendRequest(...));
+        $this->handleRequest = weakClosure($this->handleRequest(...));
+        $this->handleResponse = weakClosure($this->handleResponse(...));
+        $this->writeLoop = weakClosure($this->writeLoop(...));
     }
 
     public static function selfFactory(
@@ -75,22 +72,23 @@ class Dispatcher
         ErrorHandler $errorHandler = new DefaultErrorHandler,
         ContextFactory $contextFactory = new ContextFactoryImpl,
         ?LoggerInterface $logger = null,
+        ?\Closure $readLoopCallback = null,
     ): self
     {
-        $self = new self($channel, $requestHandler, $errorHandler, $contextFactory, $logger);
-        $self->run();
+        $self = new self($channel, $requestHandler, $errorHandler, $contextFactory, $logger, $readLoopCallback);
         return $self;
     }
 
     public function run(): void
     {
-        EventLoop::queue($this->writeLoop);
-        EventLoop::queue($this->readLoop);
+        $this->writeLoopId = EventLoop::defer($this->writeLoop);
+        $this->readLoop();
     }
 
     public function __destruct()
     {
-        EventLoop::queue($this->stop);
+        if ($this->writeLoopId) EventLoop::cancel($this->writeLoopId);
+        $this->stop();
     }
 
     public function stop(): void
@@ -108,6 +106,7 @@ class Dispatcher
         try {
             $context = $this->contextFactory->create($this->sendRequest);
             while ($request = $this->channel->receive($abortCancellation)) {
+                if ($this->readLoopCallback) ($this->readLoopCallback)($request);
                 if ($request instanceof Request) {
                     $request->setAttribute('context', $context);
                     EventLoop::queue($this->handleRequest, $request);
