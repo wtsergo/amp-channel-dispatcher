@@ -121,6 +121,11 @@ class Dispatcher
         } catch (\Throwable $throwable) {
             $this->logger?->error("$throwable");
         } finally {
+            $throwable ??= new DispatcherException('Dispatcher terminated');
+            array_walk(
+                $this->pendingResponses,
+                fn(DeferredFuture $deferred) => $deferred->error($throwable)
+            );
             $this->stop();
         }
     }
