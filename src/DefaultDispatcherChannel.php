@@ -15,7 +15,7 @@ class DefaultDispatcherChannel implements DispatcherChannel
     {
     }
 
-    public function receive(?Cancellation $cancellation = null): Message|null
+    public function receive(?Cancellation $cancellation = null): mixed
     {
         return $this->channel->receive($cancellation);
     }
@@ -24,8 +24,25 @@ class DefaultDispatcherChannel implements DispatcherChannel
      * @throws SerializationException
      * @throws ChannelException
      */
-    public function send(Message $message): void
+    public function send(mixed $data): void
     {
-        $this->channel->send($message);
+        $this->channel->send($data);
     }
+
+    public function close(): void
+    {
+        $this->channel->close();
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->channel->isClosed();
+    }
+
+    public function onClose(\Closure $onClose): void
+    {
+        $this->channel->onClose($onClose);
+    }
+
+
 }

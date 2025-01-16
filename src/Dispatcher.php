@@ -2,12 +2,14 @@
 
 namespace Wtsergo\AmpChannelDispatcher;
 
+use Amp\ByteStream\ClosedException;
 use Amp\Cancellation;
 use Amp\DeferredCancellation;
 use Amp\DeferredFuture;
 use Amp\Future;
 use Amp\Pipeline\ConcurrentIterator;
 use Amp\Pipeline\Queue;
+use Amp\Sync\ChannelException;
 use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
 use Wtsergo\AmpChannelDispatcher\Dispatcher\ContextFactory;
@@ -97,6 +99,12 @@ class Dispatcher
             $this->writeQueue->complete();
         }
         $this->loopCancellation->cancel();
+        if (!$this->channel?->isClosed()) {
+            try {
+                $this->channel->send(null);
+            } catch (ChannelException|ClosedException) {}
+            $this->channel->close();
+        }
     }
 
     private function readLoop(): void
@@ -105,16 +113,18 @@ class Dispatcher
 
         try {
             $context = $this->contextFactory->create($this->sendRequest);
-            while ($request = $this->channel->receive($abortCancellation)) {
-                if ($this->readLoopCallback) ($this->readLoopCallback)($request);
-                if ($request instanceof Request) {
-                    $request->setAttribute('context', $context);
-                    EventLoop::queue($this->handleRequest, $request);
-                } elseif ($request instanceof Response) {
-                    EventLoop::queue($this->handleResponse, $request);
+            while ($message = $this->channel->receive($abortCancellation)) {
+                if ($this->readLoopCallback) ($this->readLoopCallback)($message);
+                if ($message instanceof FatalErrorResponse) {
+                    throw new DispatcherException($message->message);
+                } elseif ($message instanceof Request) {
+                    $message->setAttribute('context', $context);
+                    EventLoop::queue($this->handleRequest, $message);
+                } elseif ($message instanceof Response) {
+                    EventLoop::queue($this->handleResponse, $message);
                 } else {
                     throw new DispatcherException(
-                        sprintf('Unsupported request %s', \get_debug_type($request))
+                        sprintf('Unsupported request %s', \get_debug_type($message))
                     );
                 }
             }
