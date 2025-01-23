@@ -3,22 +3,54 @@
 namespace Wtsergo\AmpChannelDispatcher\Dispatcher;
 
 use Amp\Future;
+use Amp\Pipeline\ConcurrentIterator;
+use Wtsergo\AmpChannelDispatcher\Dispatcher;
 use Wtsergo\AmpChannelDispatcher\Request;
 
 class ContextImpl implements Context
 {
     /**
-     * @param \Closure(Request):Future $sendRequest
+     * @var \WeakReference<IteratorStorageImpl>
+     */
+    private \WeakReference $iteratorStorageRef;
+
+    /**
+     * @var \WeakReference<Dispatcher>
+     */
+    private \WeakReference $dispatcherRef;
+
+    /**
+     * @param \Closure(Request):?Future $sendRequest
      */
     public function __construct(
         private readonly \Closure $sendRequest,
+        Dispatcher $dispatcher,
+        IteratorStorageImpl $iteratorStorage
     )
     {
+        $this->dispatcherRef = \WeakReference::create($dispatcher);
+        $this->iteratorStorageRef = \WeakReference::create($iteratorStorage);
     }
 
-    public function sendRequest(Request $request): Future
+    public function dispatcher(): ?Dispatcher
+    {
+        return $this->dispatcherRef->get();
+    }
+
+    public function sendRequest(Request $request): ?Future
     {
         return ($this->sendRequest)($request);
     }
+
+    public function getLocalIterator(int $id): ?ConcurrentIterator
+    {
+        return $this->iteratorStorageRef->get()?->get($id);
+    }
+
+    public function addLocalIterator(ConcurrentIterator $iterator): ?int
+    {
+        return $this->iteratorStorageRef->get()?->add($iterator);
+    }
+
 
 }

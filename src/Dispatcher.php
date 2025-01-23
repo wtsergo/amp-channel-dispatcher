@@ -14,6 +14,8 @@ use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
 use Wtsergo\AmpChannelDispatcher\Dispatcher\ContextFactory;
 use Wtsergo\AmpChannelDispatcher\Dispatcher\ContextFactoryImpl;
+use Wtsergo\AmpChannelDispatcher\Dispatcher\IteratorStorage;
+use Wtsergo\AmpChannelDispatcher\Dispatcher\IteratorStorageImpl;
 use function Amp\weakClosure;
 
 class Dispatcher
@@ -57,6 +59,7 @@ class Dispatcher
         private readonly ContextFactory $contextFactory = new ContextFactoryImpl,
         private readonly ?LoggerInterface $logger = null,
         private readonly ?\Closure $readLoopCallback = null,
+        private readonly IteratorStorage $iteratorStorage = new IteratorStorageImpl,
     )
     {
         $this->writeQueue = new Queue();
@@ -75,9 +78,12 @@ class Dispatcher
         ContextFactory $contextFactory = new ContextFactoryImpl,
         ?LoggerInterface $logger = null,
         ?\Closure $readLoopCallback = null,
+        IteratorStorage $iteratorStorage = new IteratorStorageImpl,
     ): self
     {
-        $self = new self($channel, $requestHandler, $errorHandler, $contextFactory, $logger, $readLoopCallback);
+        $self = new self(
+            $channel, $requestHandler, $errorHandler, $contextFactory, $logger, $readLoopCallback, $iteratorStorage
+        );
         return $self;
     }
 
@@ -105,6 +111,9 @@ class Dispatcher
             } catch (ChannelException|ClosedException) {}
             $this->channel->close();
         }
+        foreach ($this->iteratorStorage as $iterator) {
+            $iterator->dispose();
+        }
     }
 
     private function readLoop(): void
@@ -112,7 +121,7 @@ class Dispatcher
         $abortCancellation = $this->loopCancellation->getCancellation();
 
         try {
-            $context = $this->contextFactory->create($this->sendRequest);
+            $context = $this->contextFactory->create($this->sendRequest, $this, $this->iteratorStorage);
             while ($message = $this->channel->receive($abortCancellation)) {
                 if ($this->readLoopCallback) ($this->readLoopCallback)($message);
                 if ($message instanceof FatalErrorResponse) {
@@ -162,6 +171,16 @@ class Dispatcher
         } finally {
             $this->stop();
         }
+    }
+
+    public function addLocalIterator(ConcurrentIterator $iterator): int
+    {
+        return $this->iteratorStorage->add($iterator);
+    }
+
+    public function getLocalIterator(int $id): ?ConcurrentIterator
+    {
+        return $this->iteratorStorage->get($id);
     }
 
     public function sendRequest(Request $request): ?Future
