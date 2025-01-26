@@ -20,7 +20,7 @@ class IteratorContinueHandler implements RequestHandler
         $context = $request->getAttribute('context');
         $iterator = $context->getLocalIterator($request->iteratorId);
         if ($iterator === null) {
-            $response = new ErrorResponse('Iterator not found');
+            $response = $request->createErrorResponse('Iterator not found');
         } else {
             $continue = $iterator->continue();
             $response = new Response\IteratorContinue(
