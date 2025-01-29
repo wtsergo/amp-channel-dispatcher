@@ -47,6 +47,8 @@ class Dispatcher
 
     private ?string $writeLoopId=null;
 
+    protected DeferredFuture $onStop;
+
     /**
      * @param DispatcherChannel<Message, Message> $channel
      * @param RequestHandler $requestHandler
@@ -69,6 +71,7 @@ class Dispatcher
         $this->handleRequest = weakClosure($this->handleRequest(...));
         $this->handleResponse = weakClosure($this->handleResponse(...));
         $this->writeLoop = weakClosure($this->writeLoop(...));
+        $this->onStop = new DeferredFuture;
     }
 
     public static function selfFactory(
@@ -114,6 +117,19 @@ class Dispatcher
         foreach ($this->iteratorStorage as $iterator) {
             $iterator->dispose();
         }
+        if (!$this->onStop->isComplete()) {
+            $this->onStop->complete();
+        }
+    }
+
+    public function onStop(\Closure $onStop): void
+    {
+        $this->onStop->getFuture()->finally($onStop);
+    }
+
+    public function id(): int
+    {
+        return spl_object_id($this);
     }
 
     private function readLoop(): void
@@ -198,7 +214,11 @@ class Dispatcher
 
     private function handleRequest(Request $request): void
     {
-        $response = $this->requestHandler->handleRequest($request);
+        try {
+            $response = $this->requestHandler->handleRequest($request);
+        } catch (\Throwable $throwable) {
+            $response = $this->errorHandler->handleException($throwable, $request);
+        }
         $this->enqueueWrite($response->cloneWith(requestId: $request->id()));
     }
 

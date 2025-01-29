@@ -32,6 +32,11 @@ class ContextImpl implements Context
         $this->iteratorStorageRef = \WeakReference::create($iteratorStorage);
     }
 
+    public function dispatcherId(): ?int
+    {
+        return $this->dispatcher()?->id();
+    }
+
     public function dispatcher(): ?Dispatcher
     {
         return $this->dispatcherRef->get();

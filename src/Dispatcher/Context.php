@@ -9,6 +9,7 @@ use Wtsergo\AmpChannelDispatcher\Request;
 
 interface Context
 {
+    public function dispatcherId(): ?int;
     public function dispatcher(): ?Dispatcher;
     public function sendRequest(Request $request): ?Future;
     public function addLocalIterator(ConcurrentIterator $iterator): ?int;

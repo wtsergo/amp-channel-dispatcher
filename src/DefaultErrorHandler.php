@@ -11,4 +11,12 @@ class DefaultErrorHandler implements ErrorHandler
             : new FatalErrorResponse($message, $code);
     }
 
+    public function handleException(\Throwable $exception, ?Request $request = null): Response
+    {
+        return $request
+            ? new ErrorResponse($exception->getMessage(), $exception->getCode(), $request->id())
+            : new FatalErrorResponse($exception->getMessage(), $exception->getCode());
+    }
+
+
 }
