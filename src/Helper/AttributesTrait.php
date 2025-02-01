@@ -23,12 +23,4 @@ trait AttributesTrait
         $this->attributes[$name] = $value;
         return $this;
     }
-    public function __sleep()
-    {
-        $skipKeys = ['attributes'];
-        return array_filter(
-            array_keys(get_object_vars($this)),
-            fn ($key) => !in_array($key, $skipKeys)
-        );
-    }
 }

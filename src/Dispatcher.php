@@ -217,6 +217,7 @@ class Dispatcher
         try {
             $response = $this->requestHandler->handleRequest($request);
         } catch (\Throwable $throwable) {
+            $this->logger->error("$throwable");
             $response = $this->errorHandler->handleException($throwable, $request);
         }
         $this->enqueueWrite($response->cloneWith(requestId: $request->id()));
