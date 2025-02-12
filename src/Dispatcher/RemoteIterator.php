@@ -102,7 +102,6 @@ class RemoteIterator implements ConcurrentIterator
             throw new DispatcherException($continue->message, $continue->code);
         }
         if (!$continue instanceof Response\IteratorContinue) {
-            var_dump($continue);
             throw new \UnexpectedValueException(
                 sprintf(
                     'Unexpected iterator continue response received from remote: expected %s, got %s',
