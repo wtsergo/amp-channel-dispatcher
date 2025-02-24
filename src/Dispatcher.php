@@ -154,7 +154,9 @@ class Dispatcher
                 }
             }
         } catch (\Throwable $throwable) {
-            $this->logger?->error("$throwable");
+            if (!$throwable instanceof ChannelException || !$abortCancellation->isRequested()) {
+                $this->logger?->error("$throwable");
+            }
         } finally {
             $throwable ??= new DispatcherException('Dispatcher terminated');
             array_walk(
