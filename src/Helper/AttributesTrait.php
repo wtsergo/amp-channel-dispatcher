@@ -4,23 +4,23 @@ namespace Wtsergo\AmpChannelDispatcher\Helper;
 
 trait AttributesTrait
 {
-    protected array $attributes = [];
+    protected array $__attributes = [];
     public function getAttributes(): array
     {
-        return $this->attributes;
+        return $this->__attributes;
     }
-    public function setAttributes(array $attributes): static
+    public function setAttributes(array $__attributes): static
     {
-        $this->attributes = $attributes;
+        $this->__attributes = $__attributes;
         return $this;
     }
     public function getAttribute(string $name): mixed
     {
-        return $this->attributes[$name] ?? null;
+        return $this->__attributes[$name] ?? null;
     }
     public function setAttribute(string $name, mixed $value): static
     {
-        $this->attributes[$name] = $value;
+        $this->__attributes[$name] = $value;
         return $this;
     }
 }
