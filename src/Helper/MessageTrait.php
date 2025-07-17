@@ -2,13 +2,13 @@
 
 namespace Wtsergo\AmpChannelDispatcher\Helper;
 
-use Wtsergo\Misc\Helper\Dto;
+use Wtsergo\Misc\Helper\DtoTrait;
 
 trait MessageTrait
 {
     use DataTrait;
     use AttributesTrait;
-    use Dto {
+    use DtoTrait {
         cloneWith as traitCloneWith;
     }
 
