@@ -2,7 +2,7 @@
 
 namespace Wtsergo\AmpChannelDispatcher\Helper;
 
-use Wtsergo\Misc\Helper\DtoTrait;
+use Fastatsu\DataMate\Helper\DtoTrait;
 
 trait MessageTrait
 {
